@@ -18,7 +18,8 @@ marked **Breaking**.
   sequence number and timestamp. `-rtp_rtt_interval` (default 250 ms,
   0 off) also writes a row per probe stream per window, so a long call's latency
   evolution is in the CSV; each row carries the RTT jitter (RFC
-  3550-style on successive RTT samples) (Rust port only)
+  3550-style on successive RTT samples) and the stream's probe tag
+  (Rust port only)
 
 ### Changed
 

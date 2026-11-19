@@ -153,7 +153,8 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     `-trace_rtp_rtt` writes one row per probe stream to `-rtp_rtt_file` (default
     `<scenario>_<pid>_rtp_rtt.csv`): date, call, stream, window,
     sent, matched, minimum/average/p95/maximum round trip in ms, RTT
-    jitter, duplicates, reordered and missing probes. Jitter is RFC
+    jitter, duplicates, reordered and missing probes, and the stream's
+    probe tag. Jitter is RFC
     3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
     reflects RTT variation, not one-way interarrival jitter; it needs two
     samples (zero otherwise) and each window starts over. p95 is nearest-rank
