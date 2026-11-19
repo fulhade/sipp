@@ -707,8 +707,22 @@ pub fn tick_ms(t: Instant) -> u64 {
     t.saturating_duration_since(epoch()).as_millis() as u64
 }
 
+/// `t` in microseconds from the clock: an RTT probe's stamp, which wraps
+/// every ~71 minutes; differences are taken with wrapping arithmetic.
+pub fn epoch_us(t: Instant) -> u32 {
+    t.saturating_duration_since(epoch()).as_micros() as u32
+}
+
 fn epoch_ms(t: Instant) -> f64 {
     tick_ms(t) as f64
+}
+
+/// The process's RTT probe salt, from the std hasher's random keys: fixed
+/// for the process, different between processes.
+fn probe_salt() -> u32 {
+    use std::hash::{BuildHasher, Hasher};
+    static SALT: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *SALT.get_or_init(|| std::collections::hash_map::RandomState::new().build_hasher().finish() as u32)
 }
 
 /// SIPp's url_encode(): unreserved characters as they are, the rest %XX.
@@ -921,6 +935,14 @@ impl Call {
     /// SIPp's SSRCs: from the base up, audio then video, by call.
     fn ssrc(cfg: &Config, number: u64, video: bool) -> u32 {
         cfg.ssrc_base.wrapping_add((2 * number as u32).wrapping_sub(2) + video as u32)
+    }
+
+    /// An RTT probe's 64-bit tag: the process salt in the high half, and the
+    /// call number with its media bit in the low half, so distinct
+    /// (call, media) pairs are unique in a process (calls below 2^31).
+    /// Across processes a collision needs the same salt.
+    fn probe_tag(number: u64, video: bool) -> u64 {
+        (u64::from(probe_salt()) << 32) | ((u64::from(number as u32) << 1) | video as u64)
     }
 
     /// The call's audio (or video) RTP port, bound on first use: its
@@ -3446,6 +3468,10 @@ impl Call {
                     let m = &self.media[*video as usize];
                     let mut stream = Stream::new(data, *loops, *codec, remote, ssrc);
                     stream.held = held;
+                    // Pattern 7 stamps each packet for its round-trip time.
+                    let probe_tag = matches!(source, StreamSource::Pattern(id) if *id == media::PROBE_PATTERN_ID)
+                        .then(|| Call::probe_tag(self.number, *video));
+                    stream.probe = probe_tag;
                     // The keys go with the stream: none of it goes out with others.
                     stream.srtp = m.crypto().tx_context();
                     if media::rtp_debug::on() {
@@ -3454,11 +3480,11 @@ impl Call {
                     let check = match source {
                         StreamSource::Pattern(id) => {
                             let byte = media::pattern(*id, codec).map_or(0, |p| p[0]);
-                            Some(mediapool::PatternCheck { rx: m.crypto().rx_context(), id: *id, byte, len: codec.bytes, ok: 0 })
+                            Some(mediapool::PatternCheck { rx: m.crypto().rx_context(), id: *id, byte, len: codec.bytes, ok: 0, probe_tag })
                         }
                         StreamSource::File(_) => None,
                     };
-                    self.media_cmd(mediapool::Cmd::Stream { video: *video, stream, check, end: None });
+                    self.media_cmd(mediapool::Cmd::Stream { call: self.number, video: *video, stream, check, end: None });
                 }
             }
             Ok(())
@@ -3519,6 +3545,18 @@ mod tests {
     #[test]
     fn a_call_fits_the_tcache() {
         assert!(std::mem::size_of::<Call>() <= 1032, "{}", std::mem::size_of::<Call>());
+    }
+
+    /// The probe tag packs (call, media) injectively: distinct pairs cannot
+    /// share a tag, so the echo side's pairing is unambiguous.
+    #[test]
+    fn probe_tags_are_unique_per_call_and_media() {
+        let mut seen = std::collections::HashSet::new();
+        for number in 0..1000u64 {
+            for video in [false, true] {
+                assert!(seen.insert(Call::probe_tag(number, video)), "call {number}, video {video}");
+            }
+        }
     }
 
     #[test]

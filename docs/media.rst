@@ -35,6 +35,17 @@ checking. This is not detailed in the RST docs, but in a separate PDF,
 unfortunately. See:
 :download:`rtpcheck_xml_syntax_reference.pdf <rtpcheck_xml_syntax_reference.pdf>`
 
+The Rust port adds an RTT probe as pattern 7: every 0xAA-filled packet
+carries a magic byte, a 64-bit per-call tag and a microsecond send stamp, which
+an echoing peer (a UAS ``rtp_echo`` or an SBC media loop) returns
+verbatim. The sender times the round trip and reports duplicates,
+reordering and loss, even when a B2BUA rewrites the SSRC, sequence number
+and timestamp. It needs a payload of at least 13 bytes and an echoing
+peer. ``-trace_rtp_rtt`` writes one row per probe stream to ``-rtp_rtt_file``,
+and a run summary is printed at exit. p95 is nearest-rank over a histogram
+of every sample in the call or run, reported as the bucket's upper bound
+(within 6.25%). The C++ SIPp does not have this yet.
+
 
 PCAP Play
 `````````
