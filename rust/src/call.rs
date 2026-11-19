@@ -71,6 +71,8 @@ pub struct Config {
     /// -rtp_rtt_interval: how often a probe call's round trips are written,
     /// ms (0: only the call total). Default 250 with -trace_rtp_rtt.
     pub rtp_rtt_interval_ms: u32,
+    /// -trace_probe_tags: the echo path records the tag each call received.
+    pub probe_tags: bool,
     /// -rtcheck loose: a retransmission is the same To, From, Call-ID and
     /// CSeq (and a response's status line and body), not the same text.
     pub rtcheck_loose: bool,
@@ -3369,7 +3371,9 @@ impl Call {
                         f.line(format_args!("{at}TX/RX-UAS-{name} SRTP contexts - setting SRTP payload size to {bytes}, deriving session encryption/salting/authentication keys\n"));
                     }
                     let m = &self.media[*video as usize];
-                    let cmd = mediapool::Cmd::Echo { video: *video, srtp: on.then(|| (m.crypto().rx_context(), m.crypto().tx_context())), failed: None };
+                    // The Call-ID is only recorded for -trace_probe_tags.
+                    let id = env.cfg.probe_tags.then(|| Arc::from(self.dialog_call_id()));
+                    let cmd = mediapool::Cmd::Echo { call: self.number, id, video: *video, srtp: on.then(|| (m.crypto().rx_context(), m.crypto().tx_context())), failed: None };
                     let srtp = if *on { "Some(..)" } else { "None" };
                     srtpctx!(self.srtpctx, "Call::action() [{what}{name}]:  mediapool::Cmd::Echo {{ video: {video}, srtp: {srtp} }}\n");
                     match self.stream_task {
@@ -3637,6 +3641,7 @@ mod tests {
                     media_port: 6000,
                     default_pause: Duration::ZERO,
                     rtp_rtt_interval_ms: 0,
+                    probe_tags: false,
                     recv_timeout: None,
                     default_behaviors: BEHAVIOR_ALL,
                     auth_user: "svc".into(),

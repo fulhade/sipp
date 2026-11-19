@@ -48,8 +48,12 @@ every row (0 is the call total). Each row also carries an RFC 3550-style
 RTT jitter: the smoothed difference of successive round trips, not
 one-way interarrival jitter, and zero until two samples arrive. p95 is
 nearest-rank over a histogram of every sample in the window, call or run,
-reported as the bucket's upper bound (within 6.25%). The C++ SIPp does
-not have this yet.
+reported as the bucket's upper bound (within 6.25%).
+``-trace_probe_tags`` (``-probe_tags_file``) writes, on the echoing
+side, one row per call and media with the probe tag it received, the echoed packet
+count and the call's Call-ID, so the sender's ``tag -> call`` column
+pairs the two legs without a capture. The C++ SIPp does not have this
+yet.
 
 
 PCAP Play
