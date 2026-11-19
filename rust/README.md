@@ -152,11 +152,14 @@ else the crate's. `[sipp_version]` drops the `v`, as C does.
     time. The tag keeps a two-sided run from timing the peer's probes.
     `-trace_rtp_rtt` writes one row per probe stream to `-rtp_rtt_file` (default
     `<scenario>_<pid>_rtp_rtt.csv`): date, call, stream, window,
-    sent, matched, minimum/average/p95/maximum round trip in ms,
-    duplicates, reordered and missing probes. p95 is nearest-rank over a
-    histogram of every round trip in the window, call or run, so a long
-    call is never truncated; the value is the bucket's upper bound, within
-    6.25%. `-rtp_rtt_interval <ms>`
+    sent, matched, minimum/average/p95/maximum round trip in ms, RTT
+    jitter, duplicates, reordered and missing probes. Jitter is RFC
+    3550-style on successive RTT samples (`J += (|d| - J)/16`), so it
+    reflects RTT variation, not one-way interarrival jitter; it needs two
+    samples (zero otherwise) and each window starts over. p95 is nearest-rank
+    over a histogram of every round trip in the window, call or run, so a
+    long call is never truncated; the value is the bucket's upper bound,
+    within 6.25%. `-rtp_rtt_interval <ms>`
     (default 1000; 0 turns it off) also writes a row per probe stream per window
     with `window_ms` set; the call's total row has `window_ms` 0. A
     summary of the run's round trips is printed at exit even without the
